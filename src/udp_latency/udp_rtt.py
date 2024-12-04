@@ -12,6 +12,7 @@ BUFFER_SIZE = 3_000_000
 
 
 class Client:
+
     def __init__(
         self,
         local_ip: str = "0.0.0.0",
@@ -27,8 +28,10 @@ class Client:
         self.receive_log: List[List[Union[int, float]]] = []
         self.packet_index = 1
 
-        self._udp_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        self._udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, BUFFER_SIZE)
+        self._udp_socket = socket.socket(family=socket.AF_INET,
+                                         type=socket.SOCK_DGRAM)
+        self._udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF,
+                                    BUFFER_SIZE)
         self._udp_socket.bind((self.local_ip, self.local_port))
 
     def send(
@@ -56,25 +59,21 @@ class Client:
             index_bytes = self.packet_index.to_bytes(4, "big")
             current_time = time.time_ns()
             msg = index_bytes + current_time.to_bytes(8, "big") + _fill
-            send_nums = self._udp_socket.sendto(msg, (self.remote_ip, self.to_port))
+            send_nums = self._udp_socket.sendto(msg,
+                                                (self.remote_ip, self.to_port))
             self.send_log.append([self.packet_index, current_time, send_nums])
 
-            if (
-                current_time - start_time
-            ) > running_time or self.packet_index >= total_packets:
+            if (current_time - start_time
+                ) > running_time or self.packet_index >= total_packets:
                 break
             self.packet_index += 1
 
             if dyna:
-                prac_period = (
-                    (running_time - (current_time - start_time))
-                    / (total_packets - len(self.send_log))
-                    * (
-                        len(self.send_log)
-                        / (frequency * (current_time - start_time) * 1e-9)
-                    )
-                    * 1e-9
-                )
+                prac_period = ((running_time - (current_time - start_time)) /
+                               (total_packets - len(self.send_log)) *
+                               (len(self.send_log) /
+                                (frequency *
+                                 (current_time - start_time) * 1e-9)) * 1e-9)
                 prac_period = period if prac_period > period else prac_period
             else:
                 prac_period = period
@@ -83,15 +82,13 @@ class Client:
             # time.sleep(period)
 
         while q.empty():
-            self._udp_socket.sendto(
-                (0).to_bytes(4, "big"), (self.remote_ip, self.to_port)
-            )
+            self._udp_socket.sendto((0).to_bytes(4, "big"),
+                                    (self.remote_ip, self.to_port))
             time.sleep(0.05)
         self._udp_socket.close()
 
-    def listen(
-        self, buffer_size: int, verbose: bool, save: Optional[str], q: Queue
-    ) -> None:
+    def listen(self, buffer_size: int, verbose: bool, save: Optional[str],
+               q: Queue) -> None:
         latency = 0.0
         while True:
             msg, _ = self._udp_socket.recvfrom(buffer_size)
@@ -106,14 +103,13 @@ class Client:
             if packet_index == 0:
                 break
             self.receive_log.append(
-                [packet_index, latency, jitter, recv_time, recv_size]
-            )
+                [packet_index, latency, jitter, recv_time, recv_size])
 
             if verbose:
                 print(
                     "[  Server: %d  |  Packet: %6d  |  Latency: %f ｜ Jitter: %f |  Data size: %4d  ]"
-                    % (self.local_port, packet_index, latency, jitter, recv_size)
-                )
+                    % (self.local_port, packet_index, latency, jitter,
+                       recv_size))
 
         self.evaluate()
 
@@ -125,20 +121,19 @@ class Client:
         latency_list = [row[1] for row in self.receive_log]
         latency_max = max(latency_list)
         latency_avg = sum(latency_list) / len(latency_list)
-        var = sum(pow(x - latency_avg, 2) for x in latency_list) / len(latency_list)
+        var = sum(pow(x - latency_avg, 2)
+                  for x in latency_list) / len(latency_list)
         latency_std = math.sqrt(var)
         jitter = max(latency_list) - min(latency_list)
         cycle = (self.receive_log[-1][3] - self.receive_log[0][3]) * 1e-9
         bandwidth = sum([x[4] + 32 for x in self.receive_log]) / cycle
-        packet_loss = (max([x[0] for x in self.receive_log]) - len(latency_list)) / max(
-            [x[0] for x in self.receive_log]
-        )
+        packet_loss = (max([x[0] for x in self.receive_log]) -
+                       len(latency_list)) / max(
+                           [x[0] for x in self.receive_log])
 
         print("| -------------  Summary  --------------- |")
-        print(
-            "Total %d packets are received in %f seconds"
-            % (len(self.receive_log), cycle)
-        )
+        print("Total %d packets are received in %f seconds" %
+              (len(self.receive_log), cycle))
         print("Average latency: %f second" % latency_avg)
         print("Maximum latency: %f second" % latency_max)
         print("Std latency: %f second" % latency_std)
@@ -155,7 +150,9 @@ class Client:
     def save(self, path):
         with open(path, "w") as f:
             writer = csv.writer(f, delimiter=",")
-            content = [["index", "latency", "jitter", "recv-time", "recv-size"]]
+            content = [[
+                "index", "latency", "jitter", "recv-time", "recv-size"
+            ]]
             writer.writerows(content + self.receive_log)
 
     def __del__(self):
@@ -163,6 +160,7 @@ class Client:
 
 
 class Server:
+
     def __init__(
         self,
         local_ip="0.0.0.0",
@@ -175,8 +173,10 @@ class Server:
         self.remote_ip = remote_ip
         self.to_port = to_port
 
-        self._udp_socket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-        self._udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF, BUFFER_SIZE)
+        self._udp_socket = socket.socket(family=socket.AF_INET,
+                                         type=socket.SOCK_DGRAM)
+        self._udp_socket.setsockopt(socket.SOL_SOCKET, socket.SO_RCVBUF,
+                                    BUFFER_SIZE)
         self._udp_socket.bind((self.local_ip, self.local_port))
 
     def listen(self, buffer_size, verbose, q):
@@ -218,7 +218,7 @@ class Server:
         self._udp_socket.close()
 
 
-if __name__ == "__main__":
+def main():
     try:
         _opts, _ = getopt.getopt(
             sys.argv[1:],
@@ -274,7 +274,8 @@ if __name__ == "__main__":
         )
 
         listen_process.start()
-        client.send(_f, int(opts["-n"]), int(opts["-t"]), eval(opts["--dyna"]), q)
+        client.send(_f, int(opts["-n"]), int(opts["-t"]), eval(opts["--dyna"]),
+                    q)
 
         listen_process.join()
         listen_process.close()
@@ -290,10 +291,14 @@ if __name__ == "__main__":
         )
         q = Queue()
 
-        listen_process = Process(
-            target=server.listen, args=(int(opts["-b"]), eval(opts["--verbose"]), q)
-        )
+        listen_process = Process(target=server.listen,
+                                 args=(int(opts["-b"]),
+                                       eval(opts["--verbose"]), q))
         listen_process.start()
         server.send(int(opts["-n"]), eval(opts["--verbose"]), q)
         listen_process.join()
         listen_process.close()
+
+
+if __name__ == "__main__":
+    main()
